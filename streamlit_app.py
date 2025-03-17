@@ -55,14 +55,14 @@ def generate_notes(client, transcript):
     3. Pontos mais importantes que o professor enfatizou
     4. Como este assunto provavelmente seria cobrado em uma prova
     5. Possíveis questões que o professor poderia fazer sobre este conteúdo
-    6. Sugestões de tópicos para estudar com mais profundidade
+    6. Ao final, faça um comentário geral sobre o que o professor quis passar com a aula, algo como uma ideia geral
     
     Transcrição:
     {transcript}
     """
     
     response = client.chat.completions.create(
-        model="gpt-4-turbo",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Você é um assistente acadêmico especializado em criar materiais de estudo detalhados a partir de transcrições de aulas."},
             {"role": "user", "content": prompt}
