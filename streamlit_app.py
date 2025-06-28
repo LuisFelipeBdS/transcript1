@@ -1,161 +1,289 @@
 import streamlit as st
-import os
-import tempfile
-from openai import OpenAI
+import google-generativeai as genai
+import json
 import time
+from datetime import datetime
+import re
 
-# Set page configuration
+# Configure the page
 st.set_page_config(
-    page_title="Class Notes Generator",
-    page_icon="📝",
-    layout="wide"
+    page_title="Medical Diagnosis Helper",
+    page_icon="🏥",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Main title
-st.title("🎓 Class Notes Generator")
-st.markdown("Upload an audio recording of your class to generate comprehensive notes and study materials.")
+# Custom CSS for better styling
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #1f77b4;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    .diagnosis-item {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        border-left: 4px solid #1f77b4;
+    }
+    .follow-up-question {
+        background-color: #e8f4fd;
+        padding: 8px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        border-left: 3px solid #3498db;
+    }
+    .conduct-suggestion {
+        background-color: #f0fff0;
+        padding: 10px;
+        border-radius: 5px;
+        border-left: 4px solid #28a745;
+    }
+    .stProgress > div > div > div > div {
+        background-color: #1f77b4;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Sidebar for API Key
-with st.sidebar:
-    st.header("Configuration")
-    api_key = st.text_input("Enter your OpenAI API Key", type="password")
+# Initialize session state
+if 'consultation_data' not in st.session_state:
+    st.session_state.consultation_data = []
+if 'api_key' not in st.session_state:
+    st.session_state.api_key = ""
+if 'current_diagnoses' not in st.session_state:
+    st.session_state.current_diagnoses = []
+if 'follow_up_questions' not in st.session_state:
+    st.session_state.follow_up_questions = []
+if 'suggested_conduct' not in st.session_state:
+    st.session_state.suggested_conduct = ""
+if 'suggested_followup' not in st.session_state:
+    st.session_state.suggested_followup = ""
+
+def configure_gemini(api_key):
+    """Configure Gemini AI with the provided API key"""
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-pro')
+        return model
+    except Exception as e:
+        st.error(f"Error configuring Gemini AI: {str(e)}")
+        return None
+
+def get_ai_analysis(consultation_data, model):
+    """Get AI analysis for diagnoses, follow-up questions, and conduct suggestions"""
     
-    st.markdown("---")
-    st.markdown("### About")
-    st.markdown("""
-    This app helps students:
-    1. Transcribe class recordings from Brazilian Portuguese
-    2. Generate detailed study notes
-    3. Identify key concepts and potential test questions
-    """)
-
-# Initialize the OpenAI client
-@st.cache_resource
-def get_openai_client(api_key):
-    return OpenAI(api_key=api_key)
-
-# Function to transcribe audio using Whisper API
-def transcribe_audio(client, audio_file_path):
-    with open(audio_file_path, "rb") as audio_file:
-        transcript = client.audio.transcriptions.create(
-            file=audio_file,
-            model="whisper-1",
-            language="pt"  # Brazilian Portuguese
-        )
-    return transcript.text
-
-# Function to generate study notes using GPT
-def generate_notes(client, transcript):
+    # Prepare the consultation history
+    consultation_text = "\n".join([f"Input {i+1}: {data}" for i, data in enumerate(consultation_data)])
+    
     prompt = f"""
-    A seguir está a transcrição de uma aula em português brasileiro. 
-    Por favor, gere notas de estudo detalhadas baseadas nesta aula, incluindo:
+As a medical AI assistant, analyze the following consultation data and provide:
+
+Consultation Data:
+{consultation_text}
+
+Please provide your response in the following JSON format:
+{{
+    "diagnoses": [
+        {{"condition": "Diagnosis 1", "probability": 85}},
+        {{"condition": "Diagnosis 2", "probability": 70}},
+        {{"condition": "Diagnosis 3", "probability": 45}},
+        {{"condition": "Diagnosis 4", "probability": 30}}
+    ],
+    "follow_up_questions": [
+        "Question 1 to gather more information",
+        "Question 2 to clarify symptoms",
+        "Question 3 to understand duration"
+    ],
+    "suggested_conduct": "Immediate actions and treatment recommendations",
+    "suggested_followup": "Recommended examinations, tests, and follow-up appointments"
+}}
+
+Important:
+- Diagnoses should be ranked by probability (highest first)
+- Probabilities should be realistic and sum to reasonable medical uncertainty
+- Follow-up questions should be specific and relevant to the current information
+- Conduct suggestions should be immediate, actionable medical advice
+- Follow-up should include specific tests, examinations, or specialist referrals
+- Keep medical advice general and emphasize the need for proper medical evaluation
+"""
+
+    try:
+        response = model.generate_content(prompt)
+        
+        # Extract JSON from response
+        response_text = response.text
+        
+        # Find JSON in the response
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            json_str = json_match.group()
+            analysis = json.loads(json_str)
+            return analysis
+        else:
+            st.error("Could not parse AI response. Please try again.")
+            return None
+            
+    except json.JSONDecodeError as e:
+        st.error(f"Error parsing AI response: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Error getting AI analysis: {str(e)}")
+        return None
+
+def display_probability_bars(diagnoses):
+    """Display diagnosis probabilities as progress bars"""
+    st.markdown('<div class="section-header">🎯 Possible Diagnoses</div>', unsafe_allow_html=True)
     
-    1. Resumo geral da aula
-    2. Conceitos principais e definições
-    3. Pontos mais importantes que o professor enfatizou
-    4. Como este assunto provavelmente seria cobrado em uma prova
-    5. Possíveis questões que o professor poderia fazer sobre este conteúdo
-    6. Ao final, faça um comentário geral sobre o que o professor quis passar com a aula, algo como uma ideia geral
+    for i, diagnosis in enumerate(diagnoses):
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            st.markdown(f'<div class="diagnosis-item"><strong>{diagnosis["condition"]}</strong></div>', 
+                       unsafe_allow_html=True)
+            st.progress(diagnosis["probability"] / 100)
+        
+        with col2:
+            st.metric("Probability", f"{diagnosis['probability']}%")
+
+def display_follow_up_questions(questions):
+    """Display suggested follow-up questions"""
+    st.markdown('<div class="section-header">❓ Suggested Follow-up Questions</div>', unsafe_allow_html=True)
     
-    Transcrição:
-    {transcript}
-    """
+    for i, question in enumerate(questions):
+        st.markdown(f'<div class="follow-up-question"><strong>Q{i+1}:</strong> {question}</div>', 
+                   unsafe_allow_html=True)
+
+def main():
+    # Header
+    st.markdown('<div class="main-header">🏥 Medical Diagnosis Helper</div>', unsafe_allow_html=True)
+    st.markdown("---")
     
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Você é um assistente acadêmico especializado em criar materiais de estudo detalhados a partir de transcrições de aulas."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.3
+    # Sidebar for API key configuration
+    with st.sidebar:
+        st.header("⚙️ Configuration")
+        api_key = st.text_input("Gemini API Key", type="password", value=st.session_state.api_key)
+        
+        if api_key:
+            st.session_state.api_key = api_key
+            st.success("✅ API Key configured")
+        else:
+            st.warning("🔑 Please enter your Gemini API key")
+        
+        st.markdown("---")
+        st.header("📋 Consultation History")
+        
+        if st.session_state.consultation_data:
+            for i, data in enumerate(st.session_state.consultation_data):
+                with st.expander(f"Input {i+1}"):
+                    st.write(data)
+        else:
+            st.info("No consultation data yet")
+        
+        if st.button("🗑️ Clear Session", type="secondary"):
+            st.session_state.consultation_data = []
+            st.session_state.current_diagnoses = []
+            st.session_state.follow_up_questions = []
+            st.session_state.suggested_conduct = ""
+            st.session_state.suggested_followup = ""
+            st.rerun()
+
+    # Main content area
+    if not st.session_state.api_key:
+        st.warning("🔑 Please configure your Gemini API key in the sidebar to begin.")
+        st.info("You can get a free Gemini API key from Google AI Studio: https://makersuite.google.com/")
+        return
+
+    # Configure Gemini
+    model = configure_gemini(st.session_state.api_key)
+    if not model:
+        return
+
+    # Input section
+    st.markdown('<div class="section-header">📝 Medical Data Input</div>', unsafe_allow_html=True)
+    
+    # Text input for medical data
+    medical_input = st.text_area(
+        "Enter medical consultation data:",
+        placeholder="Enter patient symptoms, vital signs, physical examination findings, medical history, etc.",
+        height=150,
+        key="medical_input"
     )
     
-    return response.choices[0].message.content
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        if st.button("➕ Add Data", type="primary"):
+            if medical_input.strip():
+                st.session_state.consultation_data.append(medical_input.strip())
+                
+                # Get AI analysis
+                with st.spinner("🤖 Analyzing data with AI..."):
+                    analysis = get_ai_analysis(st.session_state.consultation_data, model)
+                    
+                    if analysis:
+                        st.session_state.current_diagnoses = analysis.get("diagnoses", [])
+                        st.session_state.follow_up_questions = analysis.get("follow_up_questions", [])
+                        st.session_state.suggested_conduct = analysis.get("suggested_conduct", "")
+                        st.session_state.suggested_followup = analysis.get("suggested_followup", "")
+                
+                # Clear input and rerun
+                st.session_state.medical_input = ""
+                st.rerun()
+            else:
+                st.error("Please enter some medical data before adding.")
 
-# Main application flow
-def main():
-    if not api_key:
-        st.warning("Por favor, insira sua chave da API OpenAI na barra lateral para começar.")
-        return
-    
-    try:
-        client = get_openai_client(api_key)
-    except Exception as e:
-        st.error(f"Erro ao configurar o cliente OpenAI: {e}")
-        return
-    
-    # File uploader
-    uploaded_file = st.file_uploader("Faça upload do arquivo de áudio da aula", type=['mp3', 'wav', 'ogg', 'm4a'])
-    
-    if uploaded_file:
-        # Display audio player
-        st.audio(uploaded_file, format='audio/ogg')
+    # Display results if we have consultation data
+    if st.session_state.consultation_data:
         
-        # Process button
-        if st.button("Processar Áudio e Gerar Notas"):
-            with st.spinner("Processando o áudio..."):
-                # Save the uploaded file temporarily
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-                    tmp_file.write(uploaded_file.getvalue())
-                    audio_path = tmp_file.name
-                
-                try:
-                    # Step 1: Transcribe
-                    with st.status("Transcrevendo o áudio...") as status:
-                        transcript = transcribe_audio(client, audio_path)
-                        status.update(label="Transcrição completa!", state="complete")
-                    
-                    # Step 2: Generate notes
-                    with st.status("Gerando notas detalhadas...") as status:
-                        notes = generate_notes(client, transcript)
-                        status.update(label="Notas geradas com sucesso!", state="complete")
-                    
-                    # Delete the temporary file
-                    os.unlink(audio_path)
-                    
-                    # Display results in tabs
-                    tab1, tab2 = st.tabs(["Notas de Estudo", "Transcrição Original"])
-                    
-                    with tab1:
-                        st.markdown(notes)
-                        
-                        # Download button for notes
-                        st.download_button(
-                            label="Download das Notas",
-                            data=notes,
-                            file_name="notas_de_aula.md",
-                            mime="text/markdown"
-                        )
-                    
-                    with tab2:
-                        st.markdown("### Transcrição Completa")
-                        st.text_area("", transcript, height=400)
-                        
-                        # Download button for transcript
-                        st.download_button(
-                            label="Download da Transcrição",
-                            data=transcript,
-                            file_name="transcricao.txt",
-                            mime="text/plain"
-                        )
-                
-                except Exception as e:
-                    st.error(f"Ocorreu um erro: {str(e)}")
-    
-    # Sample of what the app does
-    with st.expander("Como usar este aplicativo"):
-        st.markdown("""
-        **Passo a passo:**
-        1. Insira sua chave da API OpenAI na barra lateral
-        2. Faça upload do arquivo de áudio da sua aula
-        3. Clique em "Processar Áudio e Gerar Notas"
-        4. Aguarde enquanto o aplicativo:
-           - Transcreve o áudio usando OpenAI Whisper
-           - Analisa o conteúdo e gera notas detalhadas
-        5. Baixe as notas e a transcrição para usar em seus estudos
+        # Create two main columns
+        left_col, right_col = st.columns([1, 1])
         
-        **Observação:** Certifique-se de ter autorização do professor para gravar a aula.
-        """)
+        with left_col:
+            # Follow-up questions section
+            if st.session_state.follow_up_questions:
+                display_follow_up_questions(st.session_state.follow_up_questions)
+        
+        with right_col:
+            # Diagnoses section
+            if st.session_state.current_diagnoses:
+                display_probability_bars(st.session_state.current_diagnoses)
+        
+        # Full-width sections for conduct and follow-up
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown('<div class="section-header">🩺 Suggested Conduct</div>', unsafe_allow_html=True)
+            if st.session_state.suggested_conduct:
+                st.markdown(f'<div class="conduct-suggestion">{st.session_state.suggested_conduct}</div>', 
+                           unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown('<div class="section-header">📋 Suggested Follow-up</div>', unsafe_allow_html=True)
+            if st.session_state.suggested_followup:
+                st.markdown(f'<div class="conduct-suggestion">{st.session_state.suggested_followup}</div>', 
+                           unsafe_allow_html=True)
+    
+    # Footer disclaimer
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; color: #666; font-size: 0.9rem; margin-top: 2rem;'>
+        ⚠️ <strong>Medical Disclaimer:</strong> This tool is for educational and assistance purposes only. 
+        It should not replace professional medical judgment or consultation. 
+        Always verify recommendations with proper medical evaluation and current clinical guidelines.
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    main()
+    main() 
