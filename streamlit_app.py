@@ -74,7 +74,7 @@ def configure_gemini(api_key):
     """Configure Gemini AI with the provided API key"""
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-pro')
         return model
     except Exception as e:
         st.error(f"Error configuring Gemini AI: {str(e)}")
@@ -236,8 +236,7 @@ def main():
                         st.session_state.suggested_conduct = analysis.get("suggested_conduct", "")
                         st.session_state.suggested_followup = analysis.get("suggested_followup", "")
                 
-                # Clear input and rerun
-                st.session_state.medical_input = ""
+                # Rerun to refresh the display
                 st.rerun()
             else:
                 st.error("Please enter some medical data before adding.")
