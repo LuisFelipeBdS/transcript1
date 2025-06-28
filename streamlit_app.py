@@ -69,6 +69,8 @@ if 'suggested_conduct' not in st.session_state:
     st.session_state.suggested_conduct = ""
 if 'suggested_followup' not in st.session_state:
     st.session_state.suggested_followup = ""
+if 'input_key' not in st.session_state:
+    st.session_state.input_key = 0
 
 def configure_gemini(api_key):
     """Configure Gemini AI with the provided API key"""
@@ -196,6 +198,7 @@ def main():
             st.session_state.follow_up_questions = []
             st.session_state.suggested_conduct = ""
             st.session_state.suggested_followup = ""
+            st.session_state.input_key += 1
             st.rerun()
 
     # Main content area
@@ -217,7 +220,7 @@ def main():
         "Enter medical consultation data:",
         placeholder="Enter patient symptoms, vital signs, physical examination findings, medical history, etc.",
         height=150,
-        key="medical_input"
+        key=f"medical_input_{st.session_state.input_key}"
     )
     
     col1, col2 = st.columns([1, 4])
@@ -236,7 +239,8 @@ def main():
                         st.session_state.suggested_conduct = analysis.get("suggested_conduct", "")
                         st.session_state.suggested_followup = analysis.get("suggested_followup", "")
                 
-                # Rerun to refresh the display
+                # Clear input by incrementing key and rerun
+                st.session_state.input_key += 1
                 st.rerun()
             else:
                 st.error("Please enter some medical data before adding.")
