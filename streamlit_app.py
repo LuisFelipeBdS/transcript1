@@ -76,7 +76,7 @@ def configure_gemini(api_key):
     """Configure Gemini AI with the provided API key"""
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         return model
     except Exception as e:
         st.error(f"Error configuring Gemini AI: {str(e)}")
@@ -121,26 +121,34 @@ Important:
 """
 
     try:
+        st.write("🔍 Debug: Sending request to Gemini AI...")
         response = model.generate_content(prompt)
         
         # Extract JSON from response
         response_text = response.text
+        st.write("🔍 Debug: Received response from AI")
+        st.write("🔍 Debug: Response preview:", response_text[:200] + "..." if len(response_text) > 200 else response_text)
         
         # Find JSON in the response
         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
         if json_match:
             json_str = json_match.group()
+            st.write("🔍 Debug: Found JSON in response")
             analysis = json.loads(json_str)
+            st.write("🔍 Debug: Successfully parsed JSON")
             return analysis
         else:
             st.error("Could not parse AI response. Please try again.")
+            st.write("🔍 Debug: No JSON found in response")
             return None
             
     except json.JSONDecodeError as e:
         st.error(f"Error parsing AI response: {str(e)}")
+        st.write("🔍 Debug: JSON decode error")
         return None
     except Exception as e:
         st.error(f"Error getting AI analysis: {str(e)}")
+        st.write(f"🔍 Debug: General error: {str(e)}")
         return None
 
 def display_probability_bars(diagnoses):
