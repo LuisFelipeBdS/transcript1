@@ -107,12 +107,12 @@ Please provide your response in the following JSON format:
         "Question 2 to clarify symptoms",
         "Question 3 to understand duration"
     ],
-    "suggested_conduct": "Immediate actions and treatment recommendations",
-    "suggested_followup": "Recommended examinations, tests, and follow-up appointments"
+    "suggested_conduct": "Immediate actions and treatment recommendations, in Brazilian Portuguese",
+    "suggested_followup": "Recommended examinations, tests, and follow-up appointments, in Brazilian Portuguese"
 }}
 
 Important:
-- Diagnoses should be ranked by probability (highest first)
+- Diagnoses should be ranked by probability (highest first) and must be in Brazilian Portuguese
 - Probabilities should be realistic and sum to reasonable medical uncertainty
 - Follow-up questions should be specific and relevant to the current information
 - Conduct suggestions should be immediate, actionable medical advice
@@ -153,7 +153,7 @@ Important:
 
 def display_probability_bars(diagnoses):
     """Display diagnosis probabilities as progress bars"""
-    st.markdown('<div class="section-header">🎯 Possible Diagnoses</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🎯 Possíveis Diagnósticos</div>', unsafe_allow_html=True)
     
     for i, diagnosis in enumerate(diagnoses):
         col1, col2 = st.columns([3, 1])
@@ -168,7 +168,7 @@ def display_probability_bars(diagnoses):
 
 def display_follow_up_questions(questions):
     """Display suggested follow-up questions"""
-    st.markdown('<div class="section-header">❓ Suggested Follow-up Questions</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">❓ Perguntas sugeridas</div>', unsafe_allow_html=True)
     
     for i, question in enumerate(questions):
         st.markdown(f'<div class="follow-up-question"><strong>Q{i+1}:</strong> {question}</div>', 
@@ -176,13 +176,13 @@ def display_follow_up_questions(questions):
 
 def main():
     # Header
-    st.markdown('<div class="main-header">🏥 Medical Diagnosis Helper</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">🏥 Auxílio de Diagnóstico (ALPHA)</div>', unsafe_allow_html=True)
     st.markdown("---")
     
     # Sidebar for API key configuration
     with st.sidebar:
         st.header("⚙️ Configurações")
-        api_key = st.text_input("Gemini API Key", type="password", value=st.session_state.api_key)
+        api_key = st.text_input("Chave API", type="password", value=st.session_state.api_key)
         
         if api_key:
             st.session_state.api_key = api_key
@@ -211,8 +211,8 @@ def main():
 
     # Main content area
     if not st.session_state.api_key:
-        st.warning("🔑 Please configure your Gemini API key in the sidebar to begin.")
-        st.info("You can get a free Gemini API key from Google AI Studio: https://makersuite.google.com/")
+        st.warning("🔑 Configure a chave API ao lado para inicial.")
+        st.info("Sistema em ALPHA, sujeito à mudanças")
         return
 
     # Configure Gemini
