@@ -200,7 +200,7 @@ def main():
         else:
             st.info("Sem informações até o momento")
         
-        if st.button("🗑️ Clear Session", type="secondary"):
+        if st.button("🗑️ Limpar Histórico", type="secondary"):
             st.session_state.consultation_data = []
             st.session_state.current_diagnoses = []
             st.session_state.follow_up_questions = []
