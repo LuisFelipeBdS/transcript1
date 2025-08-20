@@ -7,7 +7,7 @@ import re
 
 # Configure the page
 st.set_page_config(
-    page_title="Medical Diagnosis Helper",
+    page_title="Auxílio de Diagnóstico (ALPHA)",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -121,13 +121,13 @@ Important:
 """
 
     try:
-        st.write("🔍 Debug: Sending request to Gemini AI...")
+        st.write("🔍 Debug: Mandando request...")
         response = model.generate_content(prompt)
         
         # Extract JSON from response
         response_text = response.text
-        st.write("🔍 Debug: Received response from AI")
-        st.write("🔍 Debug: Response preview:", response_text[:200] + "..." if len(response_text) > 200 else response_text)
+        st.write("🔍 Debug: Resposta recebida")
+        st.write("🔍 Debug: Preview da resposta:", response_text[:200] + "..." if len(response_text) > 200 else response_text)
         
         # Find JSON in the response
         json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
@@ -181,24 +181,24 @@ def main():
     
     # Sidebar for API key configuration
     with st.sidebar:
-        st.header("⚙️ Configuration")
+        st.header("⚙️ Configurações")
         api_key = st.text_input("Gemini API Key", type="password", value=st.session_state.api_key)
         
         if api_key:
             st.session_state.api_key = api_key
-            st.success("✅ API Key configured")
+            st.success("✅ Chave API Aceita")
         else:
-            st.warning("🔑 Please enter your Gemini API key")
+            st.warning("🔑 Chave API")
         
         st.markdown("---")
-        st.header("📋 Consultation History")
+        st.header("📋 Histórico da Consulta")
         
         if st.session_state.consultation_data:
             for i, data in enumerate(st.session_state.consultation_data):
                 with st.expander(f"Input {i+1}"):
                     st.write(data)
         else:
-            st.info("No consultation data yet")
+            st.info("Sem informações até o momento")
         
         if st.button("🗑️ Clear Session", type="secondary"):
             st.session_state.consultation_data = []
@@ -221,24 +221,24 @@ def main():
         return
 
     # Input section
-    st.markdown('<div class="section-header">📝 Medical Data Input</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">📝 Informações do Caso Clínico</div>', unsafe_allow_html=True)
     
     # Text input for medical data
     medical_input = st.text_area(
-        "Enter medical consultation data:",
-        placeholder="Enter patient symptoms, vital signs, physical examination findings, medical history, etc.",
+        "Insira dados acerca do caso clínico:",
+        placeholder="Sintomas, sinais vitais, exame físico, histórico médico, etc.",
         height=150,
         key=f"medical_input_{st.session_state.input_key}"
     )
     
     col1, col2 = st.columns([1, 4])
     with col1:
-        if st.button("➕ Add Data", type="primary"):
+        if st.button("➕ Processar", type="primary"):
             if medical_input.strip():
                 st.session_state.consultation_data.append(medical_input.strip())
                 
                 # Get AI analysis
-                with st.spinner("🤖 Analyzing data with AI..."):
+                with st.spinner("🤖 Analizando informações com a IA..."):
                     analysis = get_ai_analysis(st.session_state.consultation_data, model)
                     
                     if analysis:
@@ -275,13 +275,13 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown('<div class="section-header">🩺 Suggested Conduct</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-header">🩺 Conduta SUGERIDA</div>', unsafe_allow_html=True)
             if st.session_state.suggested_conduct:
                 st.markdown(f'<div class="conduct-suggestion">{st.session_state.suggested_conduct}</div>', 
                            unsafe_allow_html=True)
         
         with col2:
-            st.markdown('<div class="section-header">📋 Suggested Follow-up</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-header">📋 Seguimento SUGERIDO</div>', unsafe_allow_html=True)
             if st.session_state.suggested_followup:
                 st.markdown(f'<div class="conduct-suggestion">{st.session_state.suggested_followup}</div>', 
                            unsafe_allow_html=True)
@@ -290,9 +290,9 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style='text-align: center; color: #666; font-size: 0.9rem; margin-top: 2rem;'>
-        ⚠️ <strong>Medical Disclaimer:</strong> This tool is for educational and assistance purposes only. 
-        It should not replace professional medical judgment or consultation. 
-        Always verify recommendations with proper medical evaluation and current clinical guidelines.
+        ⚠️ <strong>Informação Legal:</strong> Essa ferramenta, no estado atual, está em desenvolvimento. 
+        Ela não deve nem pode substituir uma consulta médica completa, nem o discernimento do profissional médico. 
+        Sempre verifique as informações e as valide com as guidelines mais atualizadas.
     </div>
     """, unsafe_allow_html=True)
 
